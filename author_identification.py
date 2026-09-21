@@ -38,9 +38,9 @@ class AuthorIdentifier:
 
     def _encode(self, text : str):
         if self.segmentation == "sentence":
-            return [self.tokenizer.encode(s) for s in split_sentences(text)]
+            return [self.tokenizer.encode_to_ids(s) for s in split_sentences(text)]
 
-        return [self.tokenizer.encode(text)]
+        return [self.tokenizer.encode_to_ids(text)]
 
     def fit(self, author_texts):
         for name, text in author_texts.items():

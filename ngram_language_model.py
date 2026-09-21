@@ -35,8 +35,8 @@ class NGramLM:
         return math.log(numerator/denominator)
 
     def _trigram_logprob(self, curr_minus2 : int, curr_minus1 : int, curr : int, k : float):
-        numerator = self.trigrams([curr_minus2, curr_minus1, curr]) + k
-        denominator = self.bigrams([curr_minus2, curr_minus1]) + (k * self.vocab_size)
+        numerator = self.trigrams[(curr_minus2, curr_minus1, curr)] + k
+        denominator = self.bigrams[(curr_minus2, curr_minus1)] + (k * self.vocab_size)
 
         return math.log(numerator/denominator)
 

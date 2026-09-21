@@ -30,10 +30,10 @@ class BPETokenizer:
         return cls(tokenizer)
 
     def encode_to_ids(self, text : str):
-        self._tokenizer.encode(text).ids
+        return self._tokenizer.encode(text).ids
 
     def encode_to_tokens(self, text : str):
-        self._tokenizer.encode(text).tokens
+        return self._tokenizer.encode(text).tokens
 
     @property
     def vocab_size(self):
