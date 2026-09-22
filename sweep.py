@@ -1,25 +1,18 @@
-"""Sweep hyperparameters and plot classification accuracy (mean +/- std).
-
- Produces three plots:
-  1. accuracy vs vocab size, one line per order          -> sweep_vocab.png
-  2. accuracy vs add-k smoothing, one line per order      -> sweep_k.png
-  3. accuracy vs order, sentence vs stream segmentation   -> sweep_segmentation.png
-
-"""
+# Sweeps vocab, k, and segmentation with 5-fold CV and saves three plots.
+# I used Claude's help for this
 
 import random
 from statistics import mean, pstdev
 from typing import Dict, List
 
 import matplotlib
-matplotlib.use("Agg")            # write files without needing a display
+matplotlib.use("Agg")            # save files without a display
 import matplotlib.pyplot as plt
 
 from tokenizer import BPETokenizer
 from ngram_language_model import NGramLM
 from author_identification import read_text, split_sentences
 
-# --- CONFIG ---
 AUTHORS: Dict[str, str] = {
     "Tolkien": "data/hobbit.txt",
     "Doyle":   "data/lostworld.txt",
@@ -27,26 +20,22 @@ AUTHORS: Dict[str, str] = {
 PRE_TOKENIZER = "bytelevel"
 N_FOLDS       = 5
 
-# plot 1: vocab x order, k held fixed
+# plot 1: vocab x order
 VOCAB_GRID    = [200, 500, 1000, 2000, 5000, 10000]
 ORDER_GRID    = [1, 2, 3]
 K_FIXED       = 0.1
 
-# plot 2: k x order, vocab held fixed
+# plot 2: k x order
 K_GRID        = [1.0, 0.5, 0.1, 0.01, 0.001]
 VOCAB_FIXED   = 2000
 
-# plot 3: segmentation (sentence vs stream) x order, vocab & k held fixed
+# plot 3: sentence vs stream
 SEG_VOCAB     = 2000
 SEG_K         = 0.1
-# --------------
 
 
-# ---------------------------------------------------------------------------
-# Cross-validation 
-# ---------------------------------------------------------------------------
 def make_folds(items: List[str], n_folds: int, seed: int = 0) -> List[List[str]]:
-    """Shuffle items reproducibly, then split into n_folds balanced folds."""
+    # shuffle then split into balanced folds
     if n_folds < 2:
         raise ValueError("n_folds must be at least 2")
     if n_folds > len(items):
@@ -60,15 +49,13 @@ def make_folds(items: List[str], n_folds: int, seed: int = 0) -> List[List[str]]
 
 
 def _training_sentences(folds: List[List[str]], held_out: int) -> List[str]:
+    # everything except the held-out fold
     return [s for j, fold in enumerate(folds) if j != held_out for s in fold]
 
 
 def _train_lm(tok: BPETokenizer, order: int, sentences: List[str],
               segmentation: str = "sentence") -> NGramLM:
-    """Train one LM. In 'sentence' mode each sentence is its own sequence; in
-    'stream' mode all training sentences are concatenated into one continuous
-    token sequence (so only one BOS/EOS pair, and sentences flow into each
-    other)."""
+    # sentence mode: one sequence per sentence. stream mode: one big sequence.
     lm = NGramLM(order, tok.vocab_size, tok.bos_id, tok.eos_id)
     if segmentation == "stream":
         stream = [t for s in sentences for t in tok.encode_to_ids(s)]
@@ -87,12 +74,8 @@ def cross_validate_accuracy(
     seed: int = 0,
     segmentation: str = "sentence",
 ):
-    """5-fold classification accuracy. Training sequences are formed per the
-    `segmentation` mode; test items are always individual held-out sentences,
-    so accuracy stays comparable across modes.
-
-    Returns (mean_accuracy, std_accuracy, per_fold_accuracies).
-    """
+    # 5-fold accuracy. test items are single held-out sentences in both modes,
+    # so the numbers stay comparable across segmentation.
     author_folds = {
         name: make_folds(split_sentences(text), n_folds, seed)
         for name, text in author_texts.items()
@@ -100,6 +83,7 @@ def cross_validate_accuracy(
 
     per_fold_acc = []
     for i in range(n_folds):
+        # train one model per author on that author's training folds
         models = {
             name: _train_lm(tok, order, _training_sentences(folds, i), segmentation)
             for name, folds in author_folds.items()
@@ -109,23 +93,23 @@ def cross_validate_accuracy(
         for true_author, folds in author_folds.items():
             for sentence in folds[i]:
                 seq = [tok.encode_to_ids(sentence)]
+                # lowest perplexity wins
                 pred = min(models,
                            key=lambda name: models[name].perplexity(seq, k=k_smooth))
                 correct += int(pred == true_author)
                 total += 1
         per_fold_acc.append(correct / total if total else 0.0)
 
+    # mean and std across folds
     return mean(per_fold_acc), pstdev(per_fold_acc), per_fold_acc
 
 
-# ---------------------------------------------------------------------------
-# Sweeps
-# ---------------------------------------------------------------------------
 def _load_texts() -> Dict[str, str]:
     return {name: read_text(path) for name, path in AUTHORS.items()}
 
 
 def sweep_vocab(author_texts):
+    # retrain the tokenizer for each vocab size, then CV every order
     results = {order: {"mean": [], "std": []} for order in ORDER_GRID}
     for vocab in VOCAB_GRID:
         print(f"[vocab sweep] tokenizer vocab={vocab} ...")
@@ -141,6 +125,7 @@ def sweep_vocab(author_texts):
 
 
 def sweep_k(author_texts):
+    # one tokenizer, sweep k for each order
     print(f"[k sweep] tokenizer vocab={VOCAB_FIXED} ...")
     tok = BPETokenizer.train(list(AUTHORS.values()),
                              vocab_size=VOCAB_FIXED, pre_tokenizer=PRE_TOKENIZER)
@@ -156,6 +141,7 @@ def sweep_k(author_texts):
 
 
 def sweep_segmentation(author_texts):
+    # sentence vs stream at each order
     print(f"[segmentation sweep] tokenizer vocab={SEG_VOCAB} ...")
     tok = BPETokenizer.train(list(AUTHORS.values()),
                              vocab_size=SEG_VOCAB, pre_tokenizer=PRE_TOKENIZER)
@@ -172,7 +158,7 @@ def sweep_segmentation(author_texts):
 
 
 def _plot(x_values, series, x_label, title, out_path, log_x=True):
-    """series: dict of label -> {"mean": [...], "std": [...]}."""
+    # one line per series, with error bars
     plt.figure(figsize=(8, 5))
     for label, data in series.items():
         plt.errorbar(x_values, data["mean"], yerr=data["std"],
