@@ -13,7 +13,7 @@ VOCAB_SIZE   = 200
 PRE_TOKENIZER= "bytelevel"     # or "whitespace"
 SEGMENTATION = "sentence"      # or "stream"
 
-def cap_to_equal_length(author_texts: Dict[str, str]) -> Dict[str, str]:
+def cap_to_equal_length(author_texts):
     """Truncate every author's text to the length of the shortest, so no model
     gets a data-volume advantage (which otherwise biases perplexity scales)."""
     n = min(len(t) for t in author_texts.values())
