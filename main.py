@@ -9,9 +9,15 @@ AUTHORS = {
 TEST_FILE    = None
 ORDER        = 3      # 2 = bigram, 3 = trigram
 K            = 1 # add-k smoothing
-VOCAB_SIZE   = 100
+VOCAB_SIZE   = 200
 PRE_TOKENIZER= "bytelevel"     # or "whitespace"
 SEGMENTATION = "sentence"      # or "stream"
+
+def cap_to_equal_length(author_texts: Dict[str, str]) -> Dict[str, str]:
+    """Truncate every author's text to the length of the shortest, so no model
+    gets a data-volume advantage (which otherwise biases perplexity scales)."""
+    n = min(len(t) for t in author_texts.values())
+    return {name: text[:n] for name, text in author_texts.items()}
 
 def train_models(
         authors = AUTHORS,
@@ -21,7 +27,8 @@ def train_models(
         k : float = K,
         segmentation : str = SEGMENTATION
 ):
-    author_texts = {name : read_text(path) for name, path in authors.items()}
+    author_texts = {name: read_text(path) for name, path in AUTHORS.items()}
+    author_texts = cap_to_equal_length(author_texts) 
 
     tokenizer = BPETokenizer.train(
         list(authors.values()), vocab_size, pre_tokenizer
