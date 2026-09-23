@@ -8,7 +8,8 @@ AUTHORS = {
     "Tolkien": "data/hobbit.txt",
     "Doyle":   "data/lostworld.txt",
 }
-TEST_FILE     = None
+TEST_FILE     = "data/HW2-F26-testset.txt"
+OUTPUT_FILE   = "predictions.txt"
 ORDER         = 3          # character trigram
 K             = 1
 VOCAB_SIZE    = 200
@@ -36,8 +37,23 @@ def train_models(authors=AUTHORS, vocab_size: int = VOCAB_SIZE,
     classifier.fit(author_texts)
     return tokenizer, classifier, author_texts
 
+def label_test_file(clf, test_path, output_path):
+    with open(test_path, "r", encoding="utf-8") as f_in, \
+         open(output_path, "w", encoding="utf-8") as f_out:
+        for line in f_in:
+            line = line.rstrip("\n")
+            if not line.strip():
+                continue                      # skip blank lines
+            item_id, text = line.split(None, 1)   # split on first whitespace run
+            author = clf.predict(text)
+            f_out.write(f"{item_id}\t{author}\n")
+    print(f"wrote {output_path}")
+
 
 if __name__ == "__main__":
     tok, clf, author_texts = train_models()
     print(f"Trained tokenizer (vocab={tok.vocab_size}) and "
           f"{len(clf.models)} author models: {', '.join(clf.models)}")
+
+    if TEST_FILE:
+        label_test_file(clf, TEST_FILE, OUTPUT_FILE)
